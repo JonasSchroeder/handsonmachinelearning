@@ -23,10 +23,7 @@ https://github.com/ageron/handson-ml2
 """
 
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
-%matplotlib widget
-
 
 # Import dataset from GitHub
 url = "https://raw.githubusercontent.com/ageron/handson-ml2/master/datasets/housing/housing.csv"
@@ -73,8 +70,13 @@ housing_data["ocean_proximity"].value_counts() # categorical attribute with 5 va
 
 summary_table = housing_data.describe() # method to explore the numerical values in a dataframe
 
-housing_data.hist(bins=50, figsize=(20,15)) 
-plt.show() # plots a historgram of all numeric attributes
+housing_data.hist(bins=50, figsize=(20,15)) # plots a historgram of all numeric attributes
+plt.show() 
 
+# Notes:
+# we see that median_house_value is capped at 500k -> might exclude from training set 
+# median income roughly translates in 1.0 = 10k USD
+# features have different scales -> feature scaling becomes necessary
+# heavy tail distributions for most features -> normalize data
 
 
