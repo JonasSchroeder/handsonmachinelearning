@@ -1,26 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Sun Sep  6 09:55:42 2020
-
-From Hand on Machine Learning Book, Chapter 2
-
-Idea: We work in an real estate company and our boss wants us to build a model to predict the median housing prices for 
-various destricts in California. We use the California Census data which inclused median income and other information.
-
-Should we use supervised or unsupervised methods to build our system? Reinforcement learning?
--> supervised since we have a target defined which is the median housing price
-
-Classification or regression problem? Or something else?
--> regression since our target is numeric (median housing price per destrict)
-
-Do we have all the features necessary? Which should be choose?
-
-https://github.com/ageron/handson-ml2
-
+Created on Sun Sep 20 10:58:09 2020
 
 @author: jonasschroeder
 """
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -30,55 +18,54 @@ import numpy as np
 url = "https://raw.githubusercontent.com/ageron/handson-ml2/master/datasets/housing/housing.csv"
 housing_data = pd.read_csv(url)
 
-"""
-#------------------------------------------------------------------------------------------------------------
-# Simple linear regression (first try)
-#------------------------------------------------------------------------------------------------------------
+# Feature engineering
+housing_data["rooms_per_household"] = housing_data["total_rooms"]/housing_data["households"]
+housing_data["bedroom_per_rooms"] = housing_data["total_bedrooms"]/housing_data["total_rooms"]
+housing_data["population_per_household"] = housing_data["population"]/housing_data["households"]
 
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error, r2_score
+# Data preparation and transformation using pipelines: Standardized numeric data, one-hot encoded categorical data
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
 
-y = housing_data["median_house_value"]
-X = housing_data.drop(columns=["median_house_value"])
+num_pipeline = Pipeline([
+        ('imputer', SimpleImputer(strategy="median")), 
+        ('std_scaler', StandardScaler()),
+])
 
-# check for nan
-y.isnull().values.any() # -> False
-y.isnull().sum() # -> 0
-X.isnull().sum() # -> 207 missing values for total_bedrooms
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
 
-housing_temp = housing_data[housing_data["total_bedrooms"].isnull()==False]
-y = housing_temp["median_house_value"]
-X = housing_temp.drop(columns=["median_house_value", "ocean_proximity"]) # ignoring categorical variable 
-X = X[X["total_bedrooms"].isnull()==False] # drop instances with missing info on number of bedrooms
+num_attribs = list(housing_data.drop("ocean_proximity", axis=1))
+cat_attribs = ["ocean_proximity"]
 
-lin_reg = LinearRegression()
-lin_reg.fit(X, y)
-lin_reg.intercept_, lin_reg.coef_
-y_predict = lin_reg.predict(X)
+full_pipeline = ColumnTransformer([
+        ("num", num_pipeline, num_attribs), 
+        ("cat", OneHotEncoder(), cat_attribs),
+])
+            
+# not working properly, features names missing        
+housing_prepared = full_pipeline.fit_transform(housing_data)
+housing_prepared_df = pd.DataFrame(housing_prepared)
 
-# Model validity
-print("MSE of the model is: " + str(mean_squared_error(y, y_predict))) # 483M ?!?!?
-print("R-squared of the model is: " + str(r2_score(y, y_predict))) # 0.6369
+housing_data.columns
+column_names = num_attribs + list(set(list(housing_data["ocean_proximity"]))) # WRONG ORDER OF CATEGORY NAME!!!
 
-"""
-
-#------------------------------------------------------------------------------------------------------------
-# Process following the book
-#------------------------------------------------------------------------------------------------------------
+housing_prepared_df.columns = column_names
 
 
-#------------------------------------------------------------------------------------------------------------
-# Data Exploration
-#------------------------------------------------------------------------------------------------------------
 
-housing_data.info() # quick overview of the data, type, missing values etc
-
-housing_data["ocean_proximity"].value_counts() # categorical attribute with 5 values
-
-summary_table = housing_data.describe() # method to explore the numerical values in a dataframe
-
+# old data
 housing_data.hist(bins=50, figsize=(20,15)) # plots a historgram of all numeric attributes
 plt.show() 
+
+# new transformed data
+housing_prepared.hist(bins=50, figsize=(20,15)) # plots a historgram of all numeric attributes
+plt.show() 
+
+
+
+#--------------------------------------------- old code ------------------------------------------------------------------------
 
 # Notes:
 # we see that median_house_value is capped at 500k -> might exclude from training set 
