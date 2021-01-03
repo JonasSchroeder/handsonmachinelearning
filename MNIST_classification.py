@@ -13,7 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from sklearn.datasets import fetch_openml
-mnist = fetch_openml("mnist_784", version=1, as_frame=True)
+mnist = fetch_openml("mnist_784", version=1)
 
 # 784 features for 28x28 pixels
 X, y = mnist["data"], mnist["target"]
@@ -98,6 +98,10 @@ y_scores = cross_val_predict(sgd_clf, X_train, y_train_5, cv=3, method="decision
 
 precisions, recalls, thresholds = precision_recall_curve(y_train_5, y_scores)
 
+# PR curves are prefered when positive cases are rare like in this case of 5s
+# or in cases where you care more about the false positives than the false negaives
+# Good models have a curve close to the rop right corner
+# interpretation: here's room for improvement
 def plot_precision_recall_vs_threshold(precisions, recalls, thresholds):
     plt.plot(thresholds, precisions[:-1], "b--", label="Precisions")
     plt.plot(thresholds, recalls[:-1], "g-", label="Recalls")
@@ -137,9 +141,113 @@ fpr, tpr, threshold = roc_curve(y_train_5, y_scores)
 def plot_roc_curve(fpr, tpr, label=None):
     plt.plot(fpr, tpr, linewidth=2, label=label)
     plt.plot([0,1],[0,1], "k--") # dashed diagonal
+    plt.ylabel("True Positive Rate (Recall)")
+    plt.xlabel("False Positive Rate")
+    plt.title("ROC Curve")
 
 plot_roc_curve(fpr, tpr)
 plt.show()
+
+
+#---------------------------------------------------------------------------------------------
+# Binary classifier for Digit 5
+# Stochastic Gradient Descent vs Random Forest
+# Calculate AUC and plot ROC curves
+#---------------------------------------------------------------------------------------------
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.linear_model import SGDClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import cross_val_score, cross_val_predict
+from sklearn.datasets import fetch_openml
+from sklearn.metrics import precision_score, recall_score, precision_recall_curve, roc_curve, roc_auc_score
+
+mnist = fetch_openml("mnist_784", version=1, as_frame=True)
+
+X, y = mnist["data"], mnist["target"]
+y = y.astype(np.uint8)
+
+X_train, X_test, y_train, y_test = X[:60000], X[60000:], y[:60000], y[60000:]
+
+y_train_5 = (y_train == 5)
+y_test_5 = (y_test == 5)
+
+# Stochastic Gradient Descent
+sgd_clf = SGDClassifier()
+
+cv_sgd = cross_val_score(sgd_clf, X_train, y_train_5, cv=3, scoring="accuracy", verbose=True)
+#print(cv_sgd)
+print("mean cv score for SGD: " + str(cv_sgd.mean())) #0.96106
+
+sgd_clf.fit(X_train, y_train_5)
+
+y_scores_sgd = cross_val_predict(sgd_clf, X_train, y_train_5, cv=3, method="decision_function")
+
+precisions_sgd, recalls_sgd, thresholds_sgd = precision_recall_curve(y_train_5, y_scores_sgd)
+
+precision_score_sgd = round(precision_score(y_test_5, sgd_clf.predict(X_test)),4)
+recall_score_sgd = round(recall_score(y_test_5, sgd_clf.predict(X_test)),4)
+print("SGD has a PRECISION of " + str(precision_score_sgd) + " and a RECALL of " +  str(recall_score_sgd))
+
+
+fpr_sgd, tpr_sgd, threshold_sgd = roc_curve(y_train_5, y_scores_sgd)
+
+auc_sgd = roc_auc_score(y_train_5, y_scores_sgd)
+print("AUC for SGD is: " + str(auc_sgd) + " Perfect would be 1, totally random 0.5") #0.9585
+
+# Random Forest Classifier
+rnd_clf = RandomForestClassifier(random_state=42)
+
+cv_forest = cross_val_score(rnd_clf, X_train, y_train_5, cv=3, scoring="accuracy")
+#print(cv_forest)
+print("mean cv score for Random Forest: " + str(cv_forest.mean())) #0.9870
+
+rnd_clf.fit(X_train, y_train_5)
+
+y_probas_forest = cross_val_predict(rnd_clf, X_train, y_train_5, cv=3, method="predict_proba")
+y_scores_forest = y_probas_forest[:, 1]
+
+precisions_forest, recalls_forest, thresholds_forest = precision_recall_curve(y_train_5, y_scores_forest)
+
+precision_score_forest = round(precision_score(y_test_5, rnd_clf.predict(X_test)),4)
+recall_score_forest = round(recall_score(y_test_5, rnd_clf.predict(X_test)),4)
+print("Random Forest has a PRECISION of " + str(precision_score_forest) + " and a RECALL of " +  str(recall_score_forest))
+
+fpr_forest, tpr_forest, threshold_forest = roc_curve(y_train_5, y_scores_forest)
+
+auc_forest = roc_auc_score(y_train_5, y_scores_forest)
+print("AUC for Random Forest is: " + str(auc_forest) + " Perfect would be 1, totally random 0.5") #0.99834
+
+# Plot ROC curve for both classifiers
+# Interpretation: Random Forest classifier much better than SGD since ROC curve closer to top left corner
+def plot_roc_curve(fpr, tpr, label=None):
+    plt.plot(fpr, tpr, linewidth=2, label=label)
+    plt.plot([0,1],[0,1], "k--") # dashed diagonal
+    plt.ylabel("True Positive Rate (Recall)")
+    plt.xlabel("False Positive Rate")
+    plt.title("ROC Curve")
+    
+plt.plot(fpr_sgd, tpr_sgd, "b:", label="SGD")
+plot_roc_curve(fpr_forest, tpr_forest, "Random Forest")
+plt.legend(loc="lower right")
+plt.show()
+
+# PR curve for both classifiers
+def plot_precision_recall_vs_threshold(precisions, recalls, thresholds, ax):
+    sns.lineplot(thresholds, precisions[:-1], marker=".", color="b", label="Precisions", ax=ax)
+    sns.lineplot(thresholds, recalls[:-1], marker="o", color="g", label="Recalls", ax=ax)
+    plt.legend()
+    plt.ylabel("Precision/Recall Score")
+    plt.xlabel("Decision Threshold Value")
+    plt.title("Precision-Recall Curve")
+
+fig, axs = plt.subplots(1, 2, figsize=(10,8))
+plot_precision_recall_vs_threshold(precisions_sgd, recalls_sgd, thresholds_sgd, axs.flatten()[0])
+plot_precision_recall_vs_threshold(precisions_forest, recalls_forest, thresholds_forest, axs.flatten()[1])
+plt.show()
+
+
 
 
 
