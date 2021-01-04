@@ -20,7 +20,6 @@ X, y = mnist["data"], mnist["target"]
 y = y.astype(np.uint8)
 
 # Plot example
-
 some_digit = X[0]
 some_digit_image = some_digit.reshape(28,28)
 
@@ -247,6 +246,51 @@ plot_precision_recall_vs_threshold(precisions_sgd, recalls_sgd, thresholds_sgd, 
 plot_precision_recall_vs_threshold(precisions_forest, recalls_forest, thresholds_forest, axs.flatten()[1])
 plt.show()
 
+#---------------------------------------------------------------------------------------------
+# Multiclass Classifier
+# Native multiclass classifiers are Logistic Regression, Random Forest, Naive Bayes
+# Strict binary classifiers are SGD classifier and SVM
+# However, there are strategies to use these for multiclass predictions (OvR, OvO)
+# and scikit-learn implementations automatically run these, depending on the algorithm
+#---------------------------------------------------------------------------------------------
+
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.linear_model import SGDClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import cross_val_score, cross_val_predict
+from sklearn.datasets import fetch_openml
+from sklearn.metrics import precision_score, recall_score, precision_recall_curve, roc_curve, roc_auc_score
+
+mnist = fetch_openml("mnist_784", version=1, as_frame=True)
+
+X, y = mnist["data"], mnist["target"]
+y = y.astype(np.uint8)
+
+X_train, X_test, y_train, y_test = X[:3000], X[3000:5000], y[:3000], y[3000:5000]
+
+
+# One-versus-Rest
+# Train 10 binary classifiers, one per digit, and select class with the highest score
+# Prefered for most binary classifiers
+
+
+# One-versus-One
+# Train one classifier per pair (e.g., (0,1), (0,2), ...)
+# This results in way more classifiers to be trained in OvO than OvR but with less training data per classifier
+
+
+# Support Vector Machine Classifier (SVC) automatically runs OvR by default since 0.19
+from sklearn.svm import SVC
+
+svm_clf = SVC(verbose=True, cache_size=1000)
+svm_clf.fit(X_train, y_train) # label: 10 digits / very very slow
+
+some_digit = X_test.iloc[0,]
+some_digit_act = y_test[3000]
+some_digit_pred = svm_clf.predict([some_digit])
+print("Model predicted digit to be " + str(some_digit_pred) + " and it is actually a " + str(some_digit_act))
 
 
 
