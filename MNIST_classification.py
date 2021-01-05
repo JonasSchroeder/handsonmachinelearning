@@ -293,6 +293,60 @@ some_digit_pred = svm_clf.predict([some_digit])
 print("Model predicted digit to be " + str(some_digit_pred) + " and it is actually a " + str(some_digit_act))
 
 
+# Cross Validation score
+smv_clf_cv_score = cross_val_score(svm_clf, X_train, y_train, cv=5)
 
+print(smv_clf_cv_score)
+print("mean accuracy: " + str(smv_clf_cv_score.mean())) #0.94
 
+# Confusion matrix
+from sklearn.model_selection import cross_val_predict
+from sklearn.metrics import confusion_matrix
 
+y_train_pred = cross_val_predict(svm_clf, X_train, y_train, cv=3) # returns predictions instead of validation score
+
+# Confusion Plot: absolute errors
+confusion_matrix = confusion_matrix(y_train, y_train_pred)
+sns.heatmap(confusion_matrix, cmap="gray", alpha=0.9)
+
+# Confusion Plot: error %
+row_sums = confusion_matrix.sum(axis=1, keepdims=True)
+norm_confusion_matrix = confusion_matrix/row_sums
+np.fill_diagonal(norm_confusion_matrix, 0) # fill diagonals with 0, keep only errors
+sns.heatmap(norm_confusion_matrix, cbar_kws={'label': 'error in %'}, cmap="YlOrBr")
+
+'''
+# TODO: Precision and recall etc for multiclass classifier -> read up
+# Precision and Recall Scores
+from sklearn.metrics import precision_score, recall_score
+precision_score(y_train, y_train_pred, average="weighted") # 0.933
+recall_score(y_train, y_train_pred, average="weighted") # 0.933
+
+# F1-score: harmonic mean of precision and recall with more weights to low values
+from sklearn.metrics import f1_score
+f1_score(y_train, y_train_pred, average="weighted") # 0.933
+
+# Precision-Recall Curve
+from sklearn.metrics import precision_recall_curve
+
+y_scores = cross_val_predict(svm_clf, X_train, y_train, cv=3, method="decision_function")
+
+precisions, recalls, thresholds = precision_recall_curve(y_train, y_scores)
+
+def plot_precision_recall_vs_threshold(precisions, recalls, thresholds):
+    plt.plot(thresholds, precisions[:-1], "b--", label="Precisions")
+    plt.plot(thresholds, recalls[:-1], "g-", label="Recalls")
+    plt.legend()
+    plt.ylabel("Precision/Recall Score")
+    plt.xlabel("Decision Threshold Value")
+    plt.title("Precision-Recall-Tradeoff")
+    
+plot_precision_recall_vs_threshold(precisions, recalls, thresholds)
+plt.show()
+
+# Plot Precision score against recall score
+plt.plot(recalls, precisions)
+plt.xlabel("Recall Score")
+plt.ylabel("Precision Score")
+plt.title("Precision-Recall-Tradeoff")
+'''
